@@ -35,15 +35,27 @@ def load_img(name):
     path = os.path.join(IMG_DIR, _resolve(name))
     return Image.open(path).convert("RGB")
 
-def fit_cover(img, w, h):
-    """画像をw×hにcoverフィット（中央クロップ）"""
+def fit_contain_blur_bg(img, w, h):
+    """画像全体を収め、背景にぼかし版を敷く（画像切れなし）"""
     iw, ih = img.size
-    scale = max(w / iw, h / ih)
-    nw, nh = int(iw * scale), int(ih * scale)
-    img = img.resize((nw, nh), Image.LANCZOS)
-    x = (nw - w) // 2
-    y = (nh - h) // 2
-    return img.crop((x, y, x + w, y + h))
+    # 背景: coverでぼかし
+    bg_scale = max(w / iw, h / ih)
+    bg_w, bg_h = int(iw * bg_scale), int(ih * bg_scale)
+    bg = img.resize((bg_w, bg_h), Image.LANCZOS)
+    bx, by = (bg_w - w) // 2, (bg_h - h) // 2
+    bg = bg.crop((bx, by, bx + w, by + h))
+    bg = bg.filter(ImageFilter.GaussianBlur(radius=30))
+    # 背景を暗くする
+    bg = ImageEnhance.Brightness(bg).enhance(0.35)
+    # 前景: containで全体表示
+    fg_scale = min(w / iw, h / ih)
+    fg_w, fg_h = int(iw * fg_scale), int(ih * fg_scale)
+    fg = img.resize((fg_w, fg_h), Image.LANCZOS)
+    canvas = bg.copy()
+    px = (w - fg_w) // 2
+    py = (h - fg_h) // 2
+    canvas.paste(fg, (px, py))
+    return canvas
 
 def ken_burns(img, total_frames, zoom_start=1.0, zoom_end=1.08, pan=(0, 0)):
     """Ken Burnsエフェクト（ズーム＋パン）でフレームリストを生成"""
@@ -224,7 +236,7 @@ for scene_i, (img_name, duration, kb, telops) in enumerate(scenes):
         base = Image.new("RGB", (W, H), (10, 8, 6))
     else:
         raw = load_img(img_name)
-        base = fit_cover(raw, W, H)
+        base = fit_contain_blur_bg(raw, W, H)
         base = ImageEnhance.Contrast(base).enhance(1.05)
         base = ImageEnhance.Color(base).enhance(1.1)
 
