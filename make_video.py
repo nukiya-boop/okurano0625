@@ -35,42 +35,47 @@ def load_img(name):
     path = os.path.join(IMG_DIR, _resolve(name))
     return Image.open(path).convert("RGB")
 
-def fit_contain_blur_bg(img, w, h):
-    """画像全体を収め、背景にぼかし版を敷く（画像切れなし）"""
+def make_bg(img, w, h):
+    """背景用: coverでクロップしてぼかし"""
     iw, ih = img.size
-    # 背景: coverでぼかし
     bg_scale = max(w / iw, h / ih)
     bg_w, bg_h = int(iw * bg_scale), int(ih * bg_scale)
     bg = img.resize((bg_w, bg_h), Image.LANCZOS)
     bx, by = (bg_w - w) // 2, (bg_h - h) // 2
     bg = bg.crop((bx, by, bx + w, by + h))
     bg = bg.filter(ImageFilter.GaussianBlur(radius=30))
-    # 背景を暗くする
-    bg = ImageEnhance.Brightness(bg).enhance(0.35)
-    # 前景: containで全体表示
+    return ImageEnhance.Brightness(bg).enhance(0.35)
+
+def make_fg(img, w, h):
+    """前景用: containで全体表示。(fg画像, paste_x, paste_y) を返す"""
+    iw, ih = img.size
     fg_scale = min(w / iw, h / ih)
     fg_w, fg_h = int(iw * fg_scale), int(ih * fg_scale)
     fg = img.resize((fg_w, fg_h), Image.LANCZOS)
-    canvas = bg.copy()
     px = (w - fg_w) // 2
     py = (h - fg_h) // 2
-    canvas.paste(fg, (px, py))
-    return canvas
+    return fg, px, py
 
-def ken_burns(img, total_frames, zoom_start=1.0, zoom_end=1.08, pan=(0, 0)):
-    """Ken Burnsエフェクト（ズーム＋パン）でフレームリストを生成"""
+def ken_burns_frames(raw_img, total_frames, zoom_start=1.0, zoom_end=1.05, pan=(0, 0)):
+    """背景にのみKen Burnsを適用し、前景は静止させてcompositeしたフレームリストを返す"""
+    bg_base = make_bg(raw_img, W, H)
+    fg, px, py = make_fg(raw_img, W, H)
     frames = []
-    iw, ih = img.size
     for i in range(total_frames):
         t = i / max(total_frames - 1, 1)
         zoom = zoom_start + (zoom_end - zoom_start) * t
+        # 背景のみズーム＋パン
         nw, nh = int(W * zoom), int(H * zoom)
-        resized = img.resize((nw, nh), Image.LANCZOS)
-        cx = nw // 2 + int(pan[0] * t * 40)
-        cy = nh // 2 + int(pan[1] * t * 40)
-        x = max(0, min(cx - W // 2, nw - W))
-        y = max(0, min(cy - H // 2, nh - H))
-        frames.append(resized.crop((x, y, x + W, y + H)))
+        bg = bg_base.resize((nw, nh), Image.LANCZOS)
+        cx = nw // 2 + int(pan[0] * t * 30)
+        cy = nh // 2 + int(pan[1] * t * 30)
+        bx = max(0, min(cx - W // 2, nw - W))
+        by = max(0, min(cy - H // 2, nh - H))
+        bg = bg.crop((bx, by, bx + W, by + H))
+        # 前景を静止して合成（切れなし）
+        canvas = bg.copy()
+        canvas.paste(fg, (px, py))
+        frames.append(canvas)
     return frames
 
 def draw_text_with_shadow(draw, text, x, y, fnt, color=(255,255,255), shadow=(0,0,0), anchor="mm"):
@@ -138,7 +143,7 @@ scenes = [
     ]),
 
     # --- 調理イメージ2 --- 2.0s
-    ("イメージ_調理イメージ0006.jpg", 2.0, {"zoom_start":1.05,"zoom_end":1.0,"pan":(-1,0)}, [
+    ("イメージ_調理イメージ0006.jpg", 2.0, {"zoom_start":1.0,"zoom_end":1.0,"pan":(0,0)}, [
         ("目 利 き が 選 ぶ", 130, 68, (255,220,140)),
         ("旬 の 鱧", 220, 52, (255,255,255)),
     ]),
@@ -234,20 +239,15 @@ for scene_i, (img_name, duration, kb, telops) in enumerate(scenes):
 
     if img_name == "_BLACK_":
         base = Image.new("RGB", (W, H), (10, 8, 6))
+        kb_frames = [base.copy() for _ in range(total)]
     else:
         raw = load_img(img_name)
-        base = fit_contain_blur_bg(raw, W, H)
-        base = ImageEnhance.Contrast(base).enhance(1.05)
-        base = ImageEnhance.Color(base).enhance(1.1)
-
-    # Ken Burns フレーム生成
-    if img_name != "_BLACK_":
-        kb_frames = ken_burns(base, total,
+        raw = ImageEnhance.Contrast(raw).enhance(1.05)
+        raw = ImageEnhance.Color(raw).enhance(1.1)
+        kb_frames = ken_burns_frames(raw, total,
             zoom_start=kb.get("zoom_start", 1.0),
-            zoom_end=kb.get("zoom_end", 1.08),
+            zoom_end=kb.get("zoom_end", 1.05),
             pan=kb.get("pan", (0, 0)))
-    else:
-        kb_frames = [base.copy() for _ in range(total)]
 
     for i, frame in enumerate(kb_frames):
         t = i / max(total - 1, 1)
