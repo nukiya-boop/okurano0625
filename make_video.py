@@ -148,31 +148,34 @@ scenes = [
         ("旬 の 鱧", 220, 52, (255,255,255)),
     ]),
 
-    # --- 調理イメージ3 (炭火イメージ) --- 2.0s
-    ("イメージ_調理イメージ0023.jpg", 2.0, {"zoom_start":1.0,"zoom_end":1.08,"pan":(0,-1)}, [
-        ("炭 火 で 焼 く", 130, 72, (255,180,80)),
-        ("香 ば し さ と 旨 み", 220, 40, (255,255,255)),
+    # --- 調理イメージ3 (魚を捌くシーン) --- 2.0s
+    ("イメージ_調理イメージ0023.jpg", 2.0, {"zoom_start":1.0,"zoom_end":1.05,"pan":(0,-1)}, [
+        ("丁 寧 に 捌 く", 130, 72, (255,220,140)),
+        ("職 人 の 手 さ ば き", 220, 40, (255,255,255)),
     ]),
 
-    # --- 連続コマ: 0027 湯引き --- 2.0s
-    ("イメージ_調理イメージ0027 (1).jpg", 2.0, {"zoom_start":1.02,"zoom_end":1.08,"pan":(1,1)}, [
+    # --- 連続コマ: 0027 湯引き --- 2.0s → 炭火①
+    ("イメージ_調理イメージ0027 (1).jpg", 2.0, {"zoom_start":1.0,"zoom_end":1.05,"pan":(0,0)}, [
+        ("炭 火 で 焼 く", 130, 72, (255,180,80)),
+        ("香 ば し さ と 旨 み", 215, 40, (255,255,255)),
+    ]),
+
+    # --- 調理イメージ連続: 0051 --- 1.5s → 炭火②
+    ("イメージ_調理イメージ0051.jpg", 1.5, {"zoom_start":1.0,"zoom_end":1.05,"pan":(-1,0)}, [
+        ("炭 火 の 芸 術", 140, 72, (255,180,80)),
+        ("じ っ く り 、 丁 寧 に", 220, 38, (255,255,255)),
+    ]),
+
+    # --- 調理イメージ 0054 --- 1.5s → 湯引き①
+    ("イメージ_調理イメージ0054.jpg", 1.5, {"zoom_start":1.0,"zoom_end":1.05,"pan":(0,1)}, [
         ("湯 引 き  ―  白 い 芸 術", 130, 68, (180,220,255)),
         ("柔 ら か く 、 上 品 に", 215, 38, (255,255,255)),
     ]),
 
-    # --- 調理イメージ連続: 0051 --- 1.5s
-    ("イメージ_調理イメージ0051.jpg", 1.5, {"zoom_start":1.08,"zoom_end":1.0,"pan":(-1,0)}, [
-        ("職 人 の 仕 事", 140, 80, (255,220,140)),
-    ]),
-
-    # --- 調理イメージ 0054 --- 1.5s
-    ("イメージ_調理イメージ0054.jpg", 1.5, {"zoom_start":1.0,"zoom_end":1.1,"pan":(0,1)}, [
-        ("丁 寧 に 、 丁 寧 に", 140, 68, (255,255,255)),
-    ]),
-
-    # --- 調理: 0076 --- 1.5s
-    ("イメージ_調理イメージ0076.jpg", 1.5, {"zoom_start":1.05,"zoom_end":1.0,"pan":(1,-1)}, [
-        ("素 材 と 向 き 合 う 時 間", 140, 52, (220,220,220)),
+    # --- 調理: 0076 --- 1.5s → 湯引き②
+    ("イメージ_調理イメージ0076.jpg", 1.5, {"zoom_start":1.0,"zoom_end":1.05,"pan":(1,0)}, [
+        ("鱧 の 湯 引 き", 130, 72, (180,220,255)),
+        ("繊 細 な 技 が 生 み 出 す 美 味", 215, 36, (255,255,255)),
     ]),
 
     # --- 調理: 0078 --- 1.5s
@@ -188,8 +191,7 @@ scenes = [
     # --- コース料理: ふうりん --- 3.0s
     ("コース_ふうりん0007修.jpg", 3.0, {"zoom_start":1.0,"zoom_end":1.06,"pan":(0,-1)}, [
         ("夏 季 限 定", 100, 52, (255,220,140)),
-        ("大 嵓 埜 の コ ー ス", 185, 80, (255,255,255)),
-        ("「 ふ う り ん 」", 295, 90, (255,200,80)),
+        ("「 ふ う り ん 」", 210, 90, (255,200,80)),
     ]),
 
     # --- コース: 造里 --- 2.5s
@@ -215,6 +217,30 @@ scenes = [
     ]),
 ]
 # 合計: 2.5+3.0+2.0+2.0+2.0+1.5+1.5+1.5+1.5+2.0+3.0+2.5+2.5+4.0 = 31.0s → フェード重複で実質30s
+
+# QRコードを読み込んでおく
+_qr_file = next(f for f in os.listdir(IMG_DIR) if "QR" in f or "qr" in f)
+_qr_raw = Image.open(os.path.join(IMG_DIR, _qr_file)).convert("RGBA")
+QR_SIZE = 280
+_qr_img = _qr_raw.resize((QR_SIZE, QR_SIZE), Image.LANCZOS)
+
+def paste_qr(img, alpha=1.0):
+    """QRコードを画面下部中央に貼る"""
+    canvas = img.convert("RGBA")
+    qr = _qr_img.copy()
+    # 白背景のパディング
+    pad = 12
+    bg = Image.new("RGBA", (QR_SIZE + pad*2, QR_SIZE + pad*2), (255,255,255,230))
+    bg.paste(qr, (pad, pad), qr)
+    # アルファ調整
+    if alpha < 1.0:
+        r, g, b, a = bg.split()
+        a = a.point(lambda x: int(x * alpha))
+        bg = Image.merge("RGBA", (r, g, b, a))
+    qx = (W - bg.width) // 2
+    qy = H - bg.height - 160
+    canvas.paste(bg, (qx, qy), bg)
+    return canvas.convert("RGB")
 
 frame_idx = 0
 
@@ -277,6 +303,12 @@ for scene_i, (img_name, duration, kb, telops) in enumerate(scenes):
         a = a.point(lambda x: int(x * ease_in_out(telop_fade)))
         telop_layer = Image.merge("RGBA", (r, g, b, a))
         frame = Image.alpha_composite(frame_rgba, telop_layer).convert("RGB")
+
+        # クロージングシーン（最後の_BLACK_）にQRコードを表示
+        if img_name == "_BLACK_" and scene_i == len(scenes) - 1:
+            qr_fade = ease_in_out(min(1.0, (i - fade_frames) / (0.8 * FPS))) if i > fade_frames else 0.0
+            if qr_fade > 0:
+                frame = paste_qr(frame, alpha=qr_fade)
 
         # フェードイン/アウト
         if i < fade_frames:
