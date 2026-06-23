@@ -223,7 +223,7 @@ scenes = [
 # QRコードを読み込んでおく
 _qr_file = next(f for f in os.listdir(IMG_DIR) if "QR" in f or "qr" in f)
 _qr_raw = Image.open(os.path.join(IMG_DIR, _qr_file)).convert("RGBA")
-QR_SIZE = 280
+QR_SIZE = 360
 _qr_img = _qr_raw.resize((QR_SIZE, QR_SIZE), Image.LANCZOS)
 
 def paste_qr(img, alpha=1.0):
@@ -240,7 +240,7 @@ def paste_qr(img, alpha=1.0):
         a = a.point(lambda x: int(x * alpha))
         bg = Image.merge("RGBA", (r, g, b, a))
     qx = (W - bg.width) // 2
-    qy = H - bg.height - 160
+    qy = H - bg.height - 280
     canvas.paste(bg, (qx, qy), bg)
     return canvas.convert("RGB")
 
