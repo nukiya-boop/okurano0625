@@ -128,8 +128,8 @@ def white_line(img, y, thickness=3, alpha=180):
 # 各シーン: (画像ファイル名, 秒数, Ken Burns設定, テロップリスト)
 
 scenes = [
-    # --- オープニング: 黒背景タイトル --- 2.5s
-    ("_BLACK_", 2.5, {}, [
+    # --- オープニング: コース画像背景＋タイトル --- 2.5s
+    ("_BG_コース_ふうりん0007修.jpg", 2.5, {"zoom_start":1.0,"zoom_end":1.05,"pan":(0,-1)}, [
         ("大　嵓　埜", H//4 - 60, 110, (220, 190, 130)),
         ("OKURANO", H//4 + 60, 36, (200, 170, 110)),
         ("夏　の　饗　宴", H//4 + 150, 52, (255, 255, 255)),
@@ -268,6 +268,18 @@ for scene_i, (img_name, duration, kb, telops) in enumerate(scenes):
     if img_name == "_BLACK_":
         base = Image.new("RGB", (W, H), (10, 8, 6))
         kb_frames = [base.copy() for _ in range(total)]
+    elif img_name.startswith("_BG_"):
+        # 背景画像付き黒タイトルシーン: 画像をcontain+blurで敷き、さらに暗くする
+        bg_name = img_name[4:]
+        raw = load_img(bg_name)
+        raw = ImageEnhance.Contrast(raw).enhance(1.05)
+        # 背景のみKen Burns、前景は暗めのオーバーレイ
+        kb_frames = ken_burns_frames(raw, total,
+            zoom_start=kb.get("zoom_start", 1.0),
+            zoom_end=kb.get("zoom_end", 1.05),
+            pan=kb.get("pan", (0, 0)))
+        # 全体を暗くして文字が読みやすくする
+        kb_frames = [ImageEnhance.Brightness(f).enhance(0.45) for f in kb_frames]
     else:
         raw = load_img(img_name)
         raw = ImageEnhance.Contrast(raw).enhance(1.05)
@@ -283,7 +295,7 @@ for scene_i, (img_name, duration, kb, telops) in enumerate(scenes):
         # グラデーションオーバーレイ
         if img_name != "_BLACK_":
             frame = overlay_gradient_top(frame, 0.35)
-            frame = overlay_gradient_bottom(frame, 0.55)
+            frame = overlay_gradient_bottom(frame, 0.55 if not img_name.startswith("_BG_") else 0.3)
 
         # テロップ
         lines = [t[0] for t in telops]
